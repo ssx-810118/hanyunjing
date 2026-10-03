@@ -153,6 +153,32 @@ npm --prefix frontend run dev:admin
 
 聊天模型名称是发送给所配置服务的模型 ID，以供应商实际提供的能力为准。项目不在本地训练或部署模型。商品展示图片是静态资产，浏览商品不会调用图片生成模型。
 
+### 外部 API 与调用规格
+
+网站运行时调用以下三类外部 AI API，均由后端发起。表内参数与当前实现对应；配置位置见下文，实际密钥不随源码提交。
+
+| API | 请求地址与方法 | 鉴权方式 | 主要输入与输出 | 实现位置 |
+|---|---|---|---|---|
+| 导购聊天与工具调用 | `POST {app.llm.base-url}/chat/completions`；配置文件默认 Base URL 为 `https://api.openai-next.com/v1`，可由本地配置或环境变量覆盖 | `Authorization: Bearer <API Key>`，由 LangChain4j SDK 设置 | 输入 `model`、`messages`、`tools`；读取模型 `tool_calls`，执行允许的工具并将结果送回模型；以 `submitDecision` 结构化决策完成本轮，记录供应商实际返回的 Token 用量 | [OnlineAgent.java](src/main/java/com/hanyunjing/OnlineAgent.java) |
+| 火山引擎图片换装 V2 | `POST https://visual.volcengineapi.com/?Action=CVSubmitTask&Version=2022-08-31`；之后使用同一地址的 `Action=CVGetResult` 查询 | AK/SK 的 V4 HMAC-SHA256 签名；区域 `cn-north-1`，服务 `cv` | 提交 `req_key=dressing_diffusionV2`、`binary_data_base64=[人像,服装参考图]`、服装及推理参数；取得 `data.task_id` 后轮询，校验结果并转换为 PNG | [VolcengineTryOnRenderer.java](src/main/java/com/hanyunjing/VolcengineTryOnRenderer.java)、[VolcengineV4Signer.java](src/main/java/com/hanyunjing/VolcengineV4Signer.java) |
+| 腾讯混元生 3D Pro | `POST https://ai3d.tencentcloudapi.com/`；请求头 `X-TC-Action` 分别为 `SubmitHunyuanTo3DProJob`、`QueryHunyuanTo3DProJob`，`X-TC-Version=2025-05-13` | SecretId/SecretKey 的 `TC3-HMAC-SHA256` 签名，区域默认 `ap-guangzhou` | 提交 `ImageBase64`、`Model=3.0`、`GenerateType=Normal`、`EnablePBR=true`、`FaceCount=100000`；取得 `JobId` 后轮询，读取 `ResultFile3Ds` 中的 GLB 地址，再下载并验证模型 | [Tencent3dProvider.java](src/main/java/com/hanyunjing/Tencent3dProvider.java)、[TencentV3Signer.java](src/main/java/com/hanyunjing/TencentV3Signer.java) |
+
+`api.openai-next.com` 是项目默认配置的第三方兼容网关，不是 OpenAI 官方 API 域名；接口兼容协议、模型名称和实际模型供应方是不同概念。运行者需使用自己有权限访问的服务地址和凭据。
+
+开发阶段还使用了 **`gpt-image-2` 图片生成服务**制作部分静态商品图，经 imagegen API/CLI 提交提示词后，将成品安装到商品图与试穿参考目录。用途和提示词已记录在 [图片来源说明](docs/product-history-mapping.md)、[生成提示词](docs/product-image-prompts-v4.jsonl) 中，安装脚本为 [install-product-images-v4.py](scripts/install-product-images-v4.py)。该调用不属于网站运行接口，仓库未包含当时外部生成工具及完整 HTTP 调用记录，因此不宣称这些历史请求可由当前仓库完整重放。浏览商品时不调用该服务。
+
+### 前端如何调用后端
+
+前端通过 `/api` 代理请求本项目后端，由后端检查登录、授权及任务归属后调用上述云服务。业务接口参数与更多示例见 [BACKEND_API.md](BACKEND_API.md)。
+
+| 功能 | 本项目 API | 调用流程 |
+|---|---|---|
+| AI 导购 | `POST /api/agent/chat` | 提交 `sessionId`、`message` 和可选 `requirements`（预算、尺码、颜色、数量），返回结构化推荐、依据和接待编号；`POST /api/agent/langchain/chat` 使用同一导购服务，以 SSE 事件返回结果 |
+| 照片换装 | `POST /api/tryon/portrait`、`POST /api/tryon/generate` | 先以 multipart 上传 `file`，携带 `sessionId`、`authorized=true`、`aiAuthorized=true`；再提交 `sessionId`、`portraitId`、`productId`、`skuId`。查询 `GET /api/tryon/tasks/{id}`，完成后从 `GET /api/tryon/tasks/{id}/result` 下载 PNG |
+| 3D 环绕 | `POST /api/tryon/tasks/{id}/orbit?sessionId=...` | `{id}` 为已完成的换装任务；首次请求体为 `{"authorized":true,"retryOf":null}`。使用返回的 3D 任务 ID 查询 `GET /api/tryon/orbit/tasks/{id}`，完成后从 `GET /api/tryon/orbit/tasks/{id}/model` 下载 GLB |
+
+上述私有接口需要登录 Cookie；写请求还需当前会话的 `X-CSRF-Token`。换装和 3D 的查询、下载接口须带所属业务会话 `sessionId` 查询参数，它不能代替登录凭据。网站未接入真实支付或快递下单 API，支付与物流功能的范围见第四节。
+
 ### 导购模型配置与工具
 
 在 `.local/agent.properties` 中配置：
@@ -269,6 +295,13 @@ node scripts/evaluate-retail.mjs --online --limit=3
 6. 创建订单并模拟支付；在后台核对库存、订单和物流登记。测试草稿或已下架商品删除时，检查二次确认弹窗。
 
 自动化检查不等于云端生成成功或浏览器视觉验收，构造用例也不能作为真实企业经营成果。现有验收范围见 [参赛准备说明](docs/competition-readiness.md) 和 [3D 环绕说明](docs/hunyuan-3d.md)。本项目包含此前已存在的代码，赛期原创范围及既有代码使用资格需如实向主办方确认，保留真实提交历史。
+
+### 提交历史与赛期证明
+
+- 本仓库从 `de04689`（`Prepare Hanyunjing prototype for review`）开始记录，提交时间为 **2026-10-03 23:17:15（UTC+08:00）**。该提交是当时已有项目的整体导入，不是从空项目逐步开发的完整记录。
+- 项目维护者已确认没有可恢复的早期 Git 仓库或提交备份；比赛正式起止时间尚未提供。因此，当前记录**不能证明全部代码在比赛期间编写，暂不满足该项历史证明要求**。API 文档补充等后续提交只证明对应修改，不能补足此前缺失的开发记录。
+- 后续真实修改正常提交并推送，保留原有历史。当前完整可用历史见 [GitHub 提交记录](https://github.com/ssx-810118/hanyunjing/commits/main/)，本地可使用 `git log --all --date=iso-strict --format=fuller --stat` 核对。
+- 报名时应向主办方说明已有代码及缺失记录的范围，由主办方确认是否允许参评、补充其他证据或仅参加路演。仓库已上传和评审账号可访问不等于已满足赛期原创资格。
 
 ## 八、团队成员
 
