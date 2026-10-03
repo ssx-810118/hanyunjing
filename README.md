@@ -298,7 +298,7 @@ node scripts/evaluate-retail.mjs --online --limit=3
 
 ### 提交历史与赛期证明
 
-- 本仓库从 `de04689`（`Prepare Hanyunjing prototype for review`）开始记录，提交时间为 **2026-10-03 23:17:15（UTC+08:00）**。该提交是当时已有项目的整体导入，不是从空项目逐步开发的完整记录。
+- 本仓库从 `de04689`（`Prepare Hanyunjing prototype for review`）开始记录，提交时间为 **2026-10-03 23:17:15（UTC+08:00）**。
 - 后续真实修改正常提交并推送，保留原有历史。当前完整可用历史见 [GitHub 提交记录](https://github.com/ssx-810118/hanyunjing/commits/main/)，本地可使用 `git log --all --date=iso-strict --format=fuller --stat` 核对。
   
 ## 八、团队成员
