@@ -1,0 +1,7 @@
+# Copy this file to .local/tryon.properties from the project root.
+# Set both environment variables before starting the backend.
+# Keep real access keys only in local configuration or the process environment.
+app.tryon.enabled=true
+app.tryon.volcengine.access-key=${VOLCENGINE_ACCESS_KEY:}
+app.tryon.volcengine.secret-key=${VOLCENGINE_SECRET_KEY:}
+

@@ -1,0 +1,55 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+# Local backend credentials
+/.local/
+
+# Local environment settings (publish templates only)
+.env
+.env.*
+!.env.example
+*.log
+
+# Frontend generated dependencies and bundles
+/frontend/node_modules/
+/frontend/dist/
+/frontend/dist-admin/
+
+# Image-generation source files, backups and intermediate results
+# Installed product and try-on images under static/public remain included.
+/output/imagegen/
+
+# Local Python cache
+__pycache__/
+*.pyc

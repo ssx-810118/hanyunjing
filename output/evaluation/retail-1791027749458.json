@@ -1,0 +1,112 @@
+{
+  "recordedAt": "2026-10-03T11:42:29.457Z",
+  "kind": "LIVE_PROVIDER_SYNTHETIC_CASES",
+  "source": "团队构造功能用例；不代表真实客户效果或人工对照实验",
+  "attempted": 3,
+  "passed": 3,
+  "failed": 0,
+  "results": [
+    {
+      "name": "汉制预算与M码",
+      "source": "constructed",
+      "success": true,
+      "elapsedMs": 7759,
+      "status": "DONE",
+      "workflowId": "a35f1ec5-1f04-416b-90d2-046bcde347ae",
+      "checks": [
+        {
+          "name": "结构化记录",
+          "pass": true
+        },
+        {
+          "name": "期望结果",
+          "pass": true
+        },
+        {
+          "name": "朝代",
+          "pass": true
+        },
+        {
+          "name": "p11可选规格",
+          "pass": true
+        },
+        {
+          "name": "p11-M约束",
+          "pass": true
+        },
+        {
+          "name": "p11史料来源",
+          "pass": true
+        },
+        {
+          "name": "p12可选规格",
+          "pass": true
+        },
+        {
+          "name": "p12-M约束",
+          "pass": true
+        },
+        {
+          "name": "p12史料来源",
+          "pass": true
+        },
+        {
+          "name": "p15可选规格",
+          "pass": true
+        },
+        {
+          "name": "p15-M约束",
+          "pass": true
+        },
+        {
+          "name": "p15史料来源",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "name": "汉制低预算无匹配",
+      "source": "constructed",
+      "success": true,
+      "elapsedMs": 7636,
+      "status": "NO_MATCH",
+      "workflowId": "8a9343fa-df56-4254-a469-39849f4b99ca",
+      "checks": [
+        {
+          "name": "结构化记录",
+          "pass": true
+        },
+        {
+          "name": "期望结果",
+          "pass": true
+        },
+        {
+          "name": "朝代",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "name": "汉制不存在尺码",
+      "source": "constructed",
+      "success": true,
+      "elapsedMs": 13292,
+      "status": "NO_MATCH",
+      "workflowId": "dd19f47e-461a-4856-aac3-ddf57405f9b0",
+      "checks": [
+        {
+          "name": "结构化记录",
+          "pass": true
+        },
+        {
+          "name": "期望结果",
+          "pass": true
+        },
+        {
+          "name": "朝代",
+          "pass": true
+        }
+      ]
+    }
+  ]
+}

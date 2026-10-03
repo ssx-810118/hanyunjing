@@ -1,0 +1,7 @@
+# Copy to .local/orbit.properties. Keep keys on the server only.
+app.orbit.enabled=true
+app.orbit.tencent.secret-id=${TENCENTCLOUD_SECRET_ID:}
+app.orbit.tencent.secret-key=${TENCENTCLOUD_SECRET_KEY:}
+app.orbit.tencent.region=ap-guangzhou
+app.orbit.tencent.model=3.0
+app.orbit.timeout-seconds=900

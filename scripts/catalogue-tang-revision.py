@@ -1,0 +1,8 @@
+from pathlib import Path
+import json
+p=Path('src/main/resources/catalogue-v4.json');data=json.loads(p.read_text(encoding='utf-8'))
+data['products'].append(dict(id='p7',name='唐·藕荷翻领窄袖袍',form='翻领窄袖袍',color='藕荷',category='中性',tags=['翻领','窄袖','侧开衩'],reference='形制参考：中国丝绸博物馆《胡汉之间：唐代丝绸服饰展》“细裁胡衫双袖小”部分对翻领窄袖袍、侧开衩、革带及小口裤的介绍。本站以翻领与窄袖区别于圆领袍、裙装和半臂；颜色、裤装与细部裁片为现代方案。'))
+data['articles'].append(dict(id='a27',title='唐代翻领窄袖袍的展览资料',topic='服饰史料',kind='FACT',content='中国丝绸博物馆《胡汉之间：唐代丝绸服饰展》将窄袖袍单列介绍，提到圆领、交领或翻领等领型以及侧开衩、窄袖，并结合小口裤、革带和靴说明衣着组合。本站藕荷翻领窄袖袍参考这一结构方向，与圆领袍分列；不是从现代披帛套装反推新名称，也不宣称某件文物的完整复原。',source='中国丝绸博物馆｜胡汉之间：唐代丝绸服饰展·细裁胡衫双袖小｜https://www.chinasilkmuseum.com/yz/info_18.aspx?itemid=28162',keywords=['唐','翻领','窄袖袍'],claimKey='tang-turn-down-collar',claimValue='museum-exhibition-28162'))
+p.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+prompt={'out':'p7.png','prompt':'Use case: product-mockup. Modern Tang dynasty inspired TURNED-DOWN COLLAR narrow sleeve robe in muted dusty lotus pink, lapels fold outward and are clearly visible, slim straight sleeves, waist belt, knee-to-mid-calf length robe with side slits revealing narrow dark trousers. Distinct from a ROUND collar robe, no full skirt, no shoulder scarf, no wide sleeves. No person or head, invisible mannequin with subtle neutral boot forms, entire outfit centered in a vertical beige studio background, soft light, realistic silk textile detail, no writing, no logos, no fantasy decoration. Modern design reference, not a museum replica.'}
+Path('docs/product-image-prompts-v4-tang.jsonl').write_text(json.dumps(prompt,ensure_ascii=False)+'\n',encoding='utf-8')
