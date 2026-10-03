@@ -40,6 +40,10 @@ class BackendTests {
         assertFalse(core.traces("gold").toString().contains("168"));
     }
     @Test void missingCollectedOnce(){var r=core.chat(new Models.Chat("missing","想去芙蓉园"));assertEquals("NEED_SLOT",r.status());assertTrue(r.missingFields().containsAll(List.of("firstWear","height","weightKg")));}
+    @Test void firstWearSynonymsAreParsedConsistently(){
+        assertTrue(core.chat(new Models.Chat("first-positive","去芙蓉园，汉制，初次穿")).slots().firstWear());
+        assertFalse(core.chat(new Models.Chat("first-negative","去芙蓉园，汉制，不是初次穿")).slots().firstWear());
+    }
     @Test void gapAndSupplement(){
         assertTrue(core.searchKnowledge("冷门纹样测试").abstained());
         core.add(new Models.KnowledgeAdd("纹样说明","测试","测试资料",Models.Kind.COMMON,"本地运营资料",List.of("冷门纹样测试"),"pattern-test","A"));

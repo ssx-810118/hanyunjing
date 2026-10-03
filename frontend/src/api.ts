@@ -38,7 +38,8 @@ export async function request<T>(method: string, path: string, sessionId?: strin
     if (checked.changed || requestRevision !== sessionRevision) throw new SessionChangedError()
   }
   try {
-    const response = await client.request<Api<T>>({ method, url: path, data, params: { ...(sessionId ? { sessionId } : {}), ...params }, headers: modifying ? { 'X-CSRF-Token': csrfToken } : undefined, signal, timeout: path === "/agent/chat" ? 135000 : 20000 })
+    const onlineDecision = path === '/agent/chat' || path === '/admin/retail/evaluate'
+    const response = await client.request<Api<T>>({ method, url: path, data, params: { ...(sessionId ? { sessionId } : {}), ...params }, headers: modifying ? { 'X-CSRF-Token': csrfToken } : undefined, signal, timeout: onlineDecision ? 135000 : 20000 })
     if (requestRevision !== sessionRevision) throw new SessionChangedError()
     if (response.data.code !== 0) throw new Error(response.data.message)
     return response.data.data

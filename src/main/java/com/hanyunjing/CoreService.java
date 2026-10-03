@@ -178,9 +178,8 @@ public class CoreService {
         if (explicitDynasty != null) { dynasty = explicitDynasty; style = explicitDynasty + "代设计参考"; }
         boolean muted=old.muted()||text.contains("太亮")||text.contains("深色")||text.contains("低调")||"wall-dark".equals(scene);
         boolean slim=old.slim()||text.contains("显瘦");
-        Boolean first=old.firstWear();
-        if(text.contains("不是第一次")||text.contains("非首次"))first=Boolean.FALSE;
-        else if(text.contains("第一次")||text.contains("首次"))first=Boolean.TRUE;
+        Boolean explicitFirst=WearExperience.firstWearIn(text);
+        Boolean first=explicitFirst==null?old.firstWear():explicitFirst;
         Models.Body b=bodies.getOrDefault(sid,new Models.Body(null,null,null,null,null,false));
         Double h=number(text,"(?:身高\\s*)?(\\d{3}(?:\\.\\d+)?)\\s*(?:cm|厘米)",b.height());
         h=number(text,"身高\\s*(\\d{3}(?:\\.\\d+)?)",h);

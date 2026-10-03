@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.net.InetSocketAddress;
@@ -58,6 +60,45 @@ class OnlineAgentTests {
         assertTrue(core.traces("online").stream().anyMatch(t -> t.type().equals("TOOL_RESULT") && t.summary().contains("products")));
         assertFalse(core.traces("online").toString().contains(PROMPT));
         assertEquals("RESPONDED", agent.status().connection());
+    }
+    @ParameterizedTest
+    @CsvSource({"第一次穿,true", "首次穿,true", "初次穿,true", "初穿,true", "没穿过,true", "从未穿过,true",
+        "不是第一次穿,false", "不是首次穿,false", "非首次,false", "不是初次穿,false", "非初次,false", "并非初次穿,false", "以前穿过,false"})
+    void firstWearEvidenceUsesSameMeaningAsUserInput(String evidence, boolean firstWear) throws Exception {
+        stub.directDecision = true;
+        stub.queryDynasty = "汉"; stub.decisionDynasty = "汉"; stub.queryScene = "";
+        stub.selected = List.of("p11"); stub.firstWearEvidence = evidence; stub.firstWear = firstWear;
+        mvc(agent()).perform(post("/api/agent/chat").contentType("application/json")
+            .content(JSON.writeValueAsString(new Models.Chat("first-wear-synonym", "去芙蓉园，汉制，" + evidence))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("DONE"))
+            .andExpect(jsonPath("$.data.slots.firstWear").value(firstWear))
+            .andExpect(jsonPath("$.data.slots.dynasty").value("汉"))
+            .andExpect(jsonPath("$.data.recommendations[0].product.id").value("p11"));
+        assertEquals(1, stub.requests.size());
+        verify(core, never()).chat(any());
+    }
+    @Test void inventedOrTruncatedWearEvidenceCannotReverseUserPreference() {
+        stub.directDecision = true;
+        stub.firstWearEvidence = "初次穿";
+        assertEquals(502, assertThrows(OnlineAgent.Failure.class,
+            () -> agent().chat(new Models.Chat("invented-wear-evidence", PROMPT))).status());
+        assertEquals(502, assertThrows(OnlineAgent.Failure.class,
+            () -> agent().chat(new Models.Chat("truncated-wear-evidence", "去芙蓉园，唐制，不是初次穿"))).status());
+        stub.firstWear = false; stub.firstWearEvidence = "穿过";
+        assertEquals(502, assertThrows(OnlineAgent.Failure.class,
+            () -> agent().chat(new Models.Chat("truncated-never-worn", "去芙蓉园，唐制，没穿过"))).status());
+    }
+    @Test void updatedWearPreferenceOverridesEarlierEvidenceAndOtherwiseIsRetained() {
+        stub.directDecision = true;
+        stub.firstWearEvidence = "初次穿";
+        var agent = agent();
+        assertTrue(agent.chat(new Models.Chat("wear-memory", "去芙蓉园，唐制，初次穿")).slots().firstWear());
+        stub.firstWear = false; stub.firstWearEvidence = "不是初次穿";
+        assertFalse(agent.chat(new Models.Chat("wear-memory", "纠正一下，不是初次穿")).slots().firstWear());
+        assertFalse(agent.chat(new Models.Chat("wear-memory", "保留其他需求，喜欢素雅")).slots().firstWear());
+        stub.firstWear = true; stub.firstWearEvidence = "初次穿";
+        assertEquals(502, assertThrows(OnlineAgent.Failure.class,
+            () -> agent.chat(new Models.Chat("wear-memory", "保留其他需求"))).status());
     }
     @Test void profilesNeverLeaveServerAndSensitiveMessagesNeverReachModel() {
         var agent = agent();
@@ -186,6 +227,17 @@ class OnlineAgentTests {
         assertEquals(504, e.status()); assertTrue(Duration.ofNanos(System.nanoTime() - start).toMillis() < 2000);
         verify(core, never()).chat(any());
     }
+    @Test void laterModelRoundsOnlyGetRemainingTurnBudget() {
+        stub.delayMillis = 300;
+        var agent = new OnlineAgent(core, true, "protocol-test-only", stub.base(), "test", Duration.ofSeconds(2), Duration.ofMillis(500));
+        long start = System.nanoTime();
+        var failure = assertThrows(OnlineAgent.Failure.class,
+            () -> agent.chat(new Models.Chat("turn-time-budget", PROMPT)));
+        assertEquals(504, failure.status());
+        assertEquals(2, stub.requests.size());
+        assertTrue(Duration.ofNanos(System.nanoTime() - start).toMillis() < 1500);
+        verify(core, never()).chat(any());
+    }
     @Test void sessionMemoryAndLocalProfilesAreIsolated() {
         var agent = agent();
         core.body("session-a", new Models.Body(163., 55., 86., 72., 93., false));
@@ -230,6 +282,8 @@ class OnlineAgentTests {
         volatile List<String> selected = List.of("p1");
         volatile String knowledgeQuery = "唐";
         volatile String queryDynasty = "唐", decisionDynasty = "唐", queryScene = "tang-furong", dynastyEvidence;
+        volatile String firstWearEvidence = "第一次";
+        volatile boolean firstWear = true;
         Stub() throws Exception {
             server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0); server.setExecutor(workers);
             server.createContext("/v1/chat/completions", exchange -> {
@@ -266,10 +320,10 @@ class OnlineAgentTests {
             } else {
                 Map<String, Object> decision = new LinkedHashMap<>();
                 decision.put("scene", missing ? null : "tang-furong"); decision.put("dynasty", decisionDynasty);
-                decision.put("style", null); decision.put("firstWear", missing ? null : true);
+                decision.put("style", null); decision.put("firstWear", missing ? null : firstWear);
                 decision.put("muted", false); decision.put("slim", false);
                 decision.put("sceneEvidence", missing ? null : fakeEvidence ? "编造的芙蓉园" : "芙蓉园");
-                decision.put("dynastyEvidence", dynastyEvidence == null ? decisionDynasty + "制" : dynastyEvidence); decision.put("firstWearEvidence", missing ? null : "第一次");
+                decision.put("dynastyEvidence", dynastyEvidence == null ? decisionDynasty + "制" : dynastyEvidence); decision.put("firstWearEvidence", missing ? null : firstWearEvidence);
                 decision.put("productIds", missing ? List.of() : selected);
                 calls.add(call("submitDecision", Map.of("decision", decision)));
             }

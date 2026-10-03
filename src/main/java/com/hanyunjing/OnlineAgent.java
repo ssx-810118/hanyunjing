@@ -34,6 +34,8 @@ public class OnlineAgent {
         最后且仅最后调用submitDecision提交决策。不要用自由文本代替提交。最多三件商品，必须是本轮products返回的真实ID。
         scene、dynasty、firstWear未知时为null，style未知时为null；不得为完成推荐而猜测缺失槽位。
         sceneEvidence、dynastyEvidence、firstWearEvidence必须逐字引用本会话用户原文，未知时为null。
+        firstWear中，第一次/首次/初次/初穿/没穿过/从未穿过表示首次穿着；不是第一次/非首次/不是首次/不是初次/非初次/并非初次/穿过表示非首次。
+        firstWearEvidence须保留否定词，例如“不是初次穿”不能截成“初次穿”，“没穿过”不能截成“穿过”。
         多轮保留未被更改的需求；显式修改优先。scene是工具提供的ID，dynasty是%s之一或null。
         汉服这一泛称不能单独证明用户指定汉代；不得按颜色或旅游地点推断用户朝代。
         用户明确的朝代与场景默认朝代不同时，可将products的scene传空串查询该朝代目录；场景槽位仍保留用户目的地。
@@ -93,8 +95,9 @@ public class OnlineAgent {
     public OnlineAgent(CoreService core, @Value("${app.llm.enabled:true}") boolean enabled,
                        @Value("${app.llm.api-key:}") String key, @Value("${app.llm.base-url:}") String base,
                        @Value("${app.llm.model:}") String model) {
-        // Allow slow gateway responses while keeping each turn bounded.
-        this(core, enabled, key, base, model, Duration.ofSeconds(45), Duration.ofSeconds(120));
+        // The gateway can need more than 45 seconds for a valid tool decision.
+        // Allow a slow call while retaining the 120-second overall turn budget.
+        this(core, enabled, key, base, model, Duration.ofSeconds(90), Duration.ofSeconds(120));
     }
     OnlineAgent(CoreService core, boolean enabled, String key, String base, String model, Duration callTimeout, Duration turnTimeout) {
         this.core = core; this.enabled = enabled; this.key = clean(key); this.base = clean(base); this.model = clean(model);
@@ -338,8 +341,16 @@ public class OnlineAgent {
             if (scene != null && !d.sceneEvidence().contains(scene.name().substring(0, 2)) && !d.sceneEvidence().contains(scene.id())) throw new IllegalArgumentException();
             if (d.dynasty() != null && (!Dynasty.supports(d.dynasty()) || Dynasty.explicitIn(d.dynastyEvidence()).filter(d.dynasty()::equals).isEmpty())) throw new IllegalArgumentException();
             if (d.firstWear() != null) {
-                String q = d.firstWearEvidence(); boolean negative = q.contains("不是第一次") || q.contains("非首次") || q.contains("不是首次") || q.contains("穿过");
-                if (!(q.contains("第一次") || q.contains("首次") || negative) || d.firstWear() == negative) throw new IllegalArgumentException();
+                if (!d.firstWear().equals(WearExperience.firstWearIn(d.firstWearEvidence()))) throw new IllegalArgumentException();
+                // A substring quote must not reverse a negation or retain a
+                // stale preference after the user explicitly changed it.
+                for (int i = evidence.size() - 1; i >= 0; i--) {
+                    Boolean explicitFirst = WearExperience.firstWearIn(evidence.get(i));
+                    if (explicitFirst != null) {
+                        if (!d.firstWear().equals(explicitFirst)) throw new IllegalArgumentException();
+                        break;
+                    }
+                }
             }
             if (d.style() != null) { requireNonSensitive(d.style()); if (d.style().length() > 100) throw new IllegalArgumentException(); }
             List<String> missing = new ArrayList<>();
